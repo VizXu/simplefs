@@ -18,6 +18,7 @@
 #include <linux/jbd2.h>
 #include <linux/parser.h>
 #include <linux/blkdev.h>
+#include <linux/uio.h>
 
 #include "super.h"
 
@@ -363,6 +364,8 @@ ssize_t simplefs_write(struct file * filp, const char __user * buf, size_t len,
 	 * we can use just filp->f_inode instead of the
 	 * f->f_path.dentry->d_inode redirection */
 	struct inode *inode;
+	struct kiocb *iocb = NULL;
+	struct iov_iter *from = NULL;
 	struct simplefs_inode *sfs_inode;
 	struct buffer_head *bh;
 	struct super_block *sb;
@@ -379,7 +382,10 @@ ssize_t simplefs_write(struct file * filp, const char __user * buf, size_t len,
 	handle = jbd2_journal_start(sfs_sb->journal, 1);
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
-	retval = generic_write_checks(filp, ppos, &len, 0);
+
+	iocb = container_of(&filp, struct kiocb, ki_filp);
+	from = container_of(&len, struct iov_iter, count);
+	retval = generic_write_checks(iocb,from);
 	if (retval)
 		return retval;
 
